@@ -99,7 +99,7 @@ class ClientAuthMiddleware:
         response = JSONResponse(
             {"error": "unauthorized", "detail": reason},
             status_code=401,
-            headers={"WWW-Authenticate": 'Bearer realm="email.notetoself"'},
+            headers={"WWW-Authenticate": 'Bearer realm="notetoself"'},
         )
         await response({"type": "http"}, _noop_receive, send)
 

@@ -1,29 +1,29 @@
-# email.notetoself - systemd unit
+# notetoself - systemd unit
 #
 # Install:
-#   sudo cp deploy/email-notetoself.service /etc/systemd/system/email-notetoself.service
+#   sudo cp deploy/notetoself.service /etc/systemd/system/notetoself.service
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now email-notetoself.service
+#   sudo systemctl enable --now notetoself.service
 #
 # Adjust User/Group, WorkingDirectory, EnvironmentFile, and ExecStart paths if
-# your install root is not /opt/email-notetoself. The unit assumes a dedicated
-# unprivileged user "email-notetoself" owns both the install root and the
+# your install root is not /opt/notetoself. The unit assumes a dedicated
+# unprivileged user "notetoself" owns both the install root and the
 # env file. Create it once with:
-#   sudo useradd --system --home /opt/email-notetoself --shell /usr/sbin/nologin email-notetoself
+#   sudo useradd --system --home /opt/notetoself --shell /usr/sbin/nologin notetoself
 
 [Unit]
-Description=email.notetoself MCP server
-Documentation=https://github.com/ScottYates/mcp-email-notetoself
+Description=notetoself MCP server
+Documentation=https://github.com/ScottYates/mcp-notetoself
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=email-notetoself
-Group=email-notetoself
-WorkingDirectory=/opt/email-notetoself
-EnvironmentFile=/etc/email-notetoself/email-notetoself.env
-ExecStart=/opt/email-notetoself/.venv/bin/python /opt/email-notetoself/server.py
+User=notetoself
+Group=notetoself
+WorkingDirectory=/opt/notetoself
+EnvironmentFile=/etc/notetoself/notetoself.env
+ExecStart=/opt/notetoself/.venv/bin/python /opt/notetoself/server.py
 
 # Restart on crashes; leave manual stops alone.
 Restart=on-failure
@@ -53,10 +53,10 @@ CapabilityBoundingSet=
 AmbientCapabilities=
 
 # Logs go to the journal; pick them up with:
-#   journalctl -u email-notetoself.service -f
+#   journalctl -u notetoself.service -f
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=email-notetoself
+SyslogIdentifier=notetoself
 
 [Install]
 WantedBy=multi-user.target

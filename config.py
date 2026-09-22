@@ -1,4 +1,4 @@
-"""Configuration loading for email.notetoself.
+"""Configuration loading for notetoself.
 
 Reads from environment variables (and optionally a `.env` file via
 `python-dotenv`). Validates required values at startup so a misconfigured

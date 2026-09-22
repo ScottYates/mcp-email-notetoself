@@ -1,4 +1,4 @@
-"""SMTP sending for email.notetoself.
+"""SMTP sending for notetoself.
 
 Thin wrapper around `smtplib` that owns the subject/body formatting rules and
 returns a small structured result the MCP tool handler can surface back to

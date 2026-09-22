@@ -1,6 +1,6 @@
-"""email.notetoself: an MCP server that emails you a note to yourself.
+"""notetoself: an MCP server that emails you a note to yourself.
 
-Server name: `email.notetoself`
+Server name: `notetoself`
 Tool: `send_note`. Sends `message` as an email to `TO_EMAIL`.
 
 Subject: ``NTS:<first 20 chars of the note>``
@@ -31,7 +31,7 @@ from auth import ClientAuthMiddleware
 from config import load_config
 from mailer import MAX_BODY_CHARS, send_note
 
-SERVER_NAME = "email.notetoself"
+SERVER_NAME = "notetoself"
 
 # Logging on stderr: stdout can collide with stdio MCP transports if anyone
 # ever wires this up via stdio, and you want logs visible either way.
@@ -101,7 +101,7 @@ def build_app() -> Starlette:
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         async with mcp.session_manager.run():
             logger.info(
-                "email.notetoself ready on %s:%d (clients=%d)",
+                "notetoself ready on %s:%d (clients=%d)",
                 cfg.host,
                 cfg.port,
                 len(cfg.clients),
@@ -109,7 +109,7 @@ def build_app() -> Starlette:
             try:
                 yield
             finally:
-                logger.info("email.notetoself shutting down")
+                logger.info("notetoself shutting down")
 
     protected = ClientAuthMiddleware(
         inner,

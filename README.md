@@ -1,8 +1,8 @@
-# email.notetoself
+# notetoself
 
 A tiny MCP server that emails a note to yourself.
 
-- **Server name:** `email.notetoself`
+- **Server name:** `notetoself`
 - **Tool:** `send_note(message: str) -> str`
 - **Subject:** `NTS:` + first 20 characters of the note
 - **Body:** the full message, exactly as received
@@ -11,7 +11,7 @@ A tiny MCP server that emails a note to yourself.
 ## 1. Install
 
 ```bash
-cd email-notetoself
+cd notetoself
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -24,7 +24,7 @@ The server uses Gmail SMTP with an App Password (not your normal Gmail password)
 1. Enable **2-Step Verification** on the Google account that will send the email
    (https://myaccount.google.com/security).
 2. Open https://myaccount.google.com/apppasswords and create an App Password.
-   - App name: anything, e.g. `email-notetoself`
+   - App name: anything, e.g. `notetoself`
    - Google shows you a 16-character password; copy it.
 3. That's your `SMTP_PASS`.
 
@@ -73,14 +73,14 @@ python server.py
 You should see:
 
 ```
-email.notetoself ready on 0.0.0.0:3001 (clients=1)
+notetoself ready on 0.0.0.0:3001 (clients=1)
 ```
 
 Smoke test from another shell:
 
 ```bash
 curl http://localhost:3001/health
-# {"status":"ok","server":"email.notetoself"}
+# {"status":"ok","server":"notetoself"}
 
 curl -X POST http://localhost:3001/mcp \
      -H "X-Client-ID: scott-desktop" \
@@ -112,7 +112,7 @@ The body `"remember to buy milk"` will arrive at `beernutz@gmail.com` with subje
 ```json
 {
   "mcpServers": {
-    "email.notetoself": {
+    "notetoself": {
       "type": "streamable-http",
       "url": "http://localhost:3001/mcp",
       "headers": {
@@ -134,7 +134,7 @@ Any MCP client that supports streamable HTTP works. Point it at
 ## File layout
 
 ```
-email-notetoself/
+notetoself/
 |-- server.py            # MCP server entry + Starlette wiring
 |-- auth.py              # ASGI middleware: X-Client-ID + Bearer token
 |-- mailer.py            # SMTP send + subject/body rules
@@ -144,39 +144,39 @@ email-notetoself/
 |-- tests/
 |   `-- test_mailer_logic.py
 |-- deploy/              # systemd unit + env file template
-|   |-- email-notetoself.service
-|   `-- email-notetoself.env.example
+|   |-- notetoself.service
+|   `-- notetoself.env.example
 `-- README.md
 ```
 
 ## 6. Run as a systemd service (Linux)
 
-The repo ships a unit file in `deploy/email-notetoself.service` that runs the
+The repo ships a unit file in `deploy/notetoself.service` that runs the
 server under a dedicated unprivileged user, restarts on failure, and reads
-its config from `/etc/email-notetoself/email-notetoself.env`.
+its config from `/etc/notetoself/notetoself.env`.
 
 ```bash
 # 1. Pick an install root and clone/copy the repo there.
-sudo install -d -o email-notetoself -g email-notetoself -m 0750 /opt/email-notetoself
-sudo cp -r . /opt/email-notetoself/
-sudo -u email-notetoself python3 -m venv /opt/email-notetoself/.venv
-sudo -u email-notetoself /opt/email-notetoself/.venv/bin/pip install -r /opt/email-notetoself/requirements.txt
+sudo install -d -o notetoself -g notetoself -m 0750 /opt/notetoself
+sudo cp -r . /opt/notetoself/
+sudo -u notetoself python3 -m venv /opt/notetoself/.venv
+sudo -u notetoself /opt/notetoself/.venv/bin/pip install -r /opt/notetoself/requirements.txt
 
 # 2. Install the env file (mode 0600, owned by the service user).
-sudo install -d -o email-notetoself -g email-notetoself -m 0750 /etc/email-notetoself
-sudo cp deploy/email-notetoself.env.example /etc/email-notetoself/email-notetoself.env
-sudo chmod 0600 /etc/email-notetoself/email-notetoself.env
-sudo -u email-notetoself $EDITOR /etc/email-notetoself/email-notetoself.env
+sudo install -d -o notetoself -g notetoself -m 0750 /etc/notetoself
+sudo cp deploy/notetoself.env.example /etc/notetoself/notetoself.env
+sudo chmod 0600 /etc/notetoself/notetoself.env
+sudo -u notetoself $EDITOR /etc/notetoself/notetoself.env
 
 # 3. Install + enable the unit.
-sudo cp deploy/email-notetoself.service /etc/systemd/system/email-notetoself.service
+sudo cp deploy/notetoself.service /etc/systemd/system/notetoself.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now email-notetoself.service
-sudo systemctl status email-notetoself.service
+sudo systemctl enable --now notetoself.service
+sudo systemctl status notetoself.service
 ```
 
 The unit binds to `0.0.0.0:3001` (configurable via the env file) and logs to
-the journal (`journalctl -u email-notetoself.service -f`).
+the journal (`journalctl -u notetoself.service -f`).
 
 ## Security notes
 
