@@ -6,7 +6,11 @@ Tool: `send_note`. Sends `message` as an email to `TO_EMAIL`.
 Subject: ``NTS:<first 20 chars of the note>``
 Body:    the full message, exactly as received.
 
-Authorization: every request to the MCP endpoint must carry an
+Transport: legacy SSE. Clients `GET /mcp` to open the event stream; the
+server tells the client (via the `endpoint` SSE event) the URL for
+posting messages back, which is `/mcp/posts` by default.
+
+Authorization: every request to the MCP endpoints must carry an
 `Authorization: Bearer <token>` header whose value matches one of the
 entries in the `TOKENS_JSON` environment variable.
 
@@ -33,6 +37,14 @@ from mailer import MAX_BODY_CHARS, send_note
 from mcp.server.transport_security import TransportSecuritySettings
 
 SERVER_NAME = "notetoself"
+
+# Where the SSE stream lives and where clients POST messages back. The
+# server announces the post URL to clients via the SSE `endpoint` event,
+# so changing these only requires updating Claude Desktop (or any other
+# SSE client) to point at the new stream URL.
+SSE_PATH = "/mcp"
+SSE_MESSAGE_PATH = "/mcp/posts/"
+
 
 # Logging on stderr: stdout can collide with stdio MCP transports if anyone
 # ever wires this up via stdio, and you want logs visible either way.
@@ -101,28 +113,29 @@ def build_app() -> Starlette:
         allowed_origins=cfg.allowed_origins,
     )
 
-    # The streamable_http_app already has /mcp mounted and its own lifespan.
-    # When we Mount it under another Starlette app, that inner lifespan never
-    # runs, so we must start the session manager ourselves.
-    inner = mcp.streamable_http_app(
-        json_response=True,
-        stateless_http=True,
+    # SSE app: GET /mcp opens the event stream; POST /mcp/posts accepts
+    # client-to-server messages. The `endpoint` SSE event advertises
+    # /mcp/posts to clients automatically.
+    inner = mcp.sse_app(
+        sse_path=SSE_PATH,
+        message_path=SSE_MESSAGE_PATH,
         transport_security=transport_security,
     )
 
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
-        async with mcp.session_manager.run():
-            logger.info(
-                "notetoself ready on %s:%d (tokens=%d)",
-                cfg.host,
-                cfg.port,
-                len(cfg.tokens),
-            )
-            try:
-                yield
-            finally:
-                logger.info("notetoself shutting down")
+        # SSE manages per-connection sessions via `connect_sse`; there's no
+        # shared session manager to start, so this is just logging.
+        logger.info(
+            "notetoself ready on %s:%d (tokens=%d, transport=sse)",
+            cfg.host,
+            cfg.port,
+            len(cfg.tokens),
+        )
+        try:
+            yield
+        finally:
+            logger.info("notetoself shutting down")
 
     protected = BearerAuthMiddleware(
         inner,

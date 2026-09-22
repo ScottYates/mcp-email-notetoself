@@ -6,6 +6,7 @@ A tiny MCP server that emails a note to yourself.
 - **Tool:** `send_note(message: str) -> str`
 - **Subject:** `NTS:` + first 20 characters of the note
 - **Body:** the full message, exactly as received
+- **Transport:** legacy SSE. Clients `GET /mcp` to open the event stream and POST to `/mcp/posts/` for messages back.
 - **Auth:** every request must carry `Authorization: Bearer <token>` matching an entry in `TOKENS_JSON`
 
 ## 1. Install
@@ -86,7 +87,7 @@ python server.py
 You should see:
 
 ```
-notetoself ready on 0.0.0.0:3001 (tokens=1)
+notetoself ready on 0.0.0.0:3001 (tokens=1, transport=sse)
 ```
 
 Smoke test from another shell:
@@ -95,22 +96,18 @@ Smoke test from another shell:
 curl http://localhost:3001/health
 # {"status":"ok","server":"notetoself"}
 
-curl -X POST http://localhost:3001/mcp \
+# Open the SSE stream. The first event the server sends is the message
+# post URL it expects clients to use. Use -N so curl streams the output
+# instead of buffering until disconnect.
+curl -N http://localhost:3001/mcp \
      -H "Authorization: Bearer PASTE_TOKEN_HERE" \
-     -H "Content-Type: application/json" \
-     -H "Accept: application/json, text/event-stream" \
-     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+     -H "Accept: text/event-stream"
 ```
 
-You should get a response that lists `send_note`. Then call it:
-
-```bash
-curl -X POST http://localhost:3001/mcp \
-     -H "Authorization: Bearer PASTE_TOKEN_HERE" \
-     -H "Content-Type: application/json" \
-     -H "Accept: application/json, text/event-stream" \
-     -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"send_note","arguments":{"message":"remember to buy milk"}}}'
-```
+The first line you receive is the `endpoint` event telling you where to
+POST messages (it'll be `/mcp/posts/?session_id=<hex>`). You won't get a
+plain `tools/list` response from `curl` -- real MCP clients (Claude
+Desktop, Cursor, etc.) handle the SSE protocol end-to-end.
 
 The body `"remember to buy milk"` will arrive at `beernutz@gmail.com` with subject `NTS:remember to buy milk`.
 
@@ -124,7 +121,7 @@ The body `"remember to buy milk"` will arrive at `beernutz@gmail.com` with subje
 {
   "mcpServers": {
     "notetoself": {
-      "type": "streamable-http",
+      "type": "sse",
       "url": "http://localhost:3001/mcp",
       "headers": {
         "Authorization": "Bearer PASTE_TOKEN_HERE"
@@ -133,6 +130,11 @@ The body `"remember to buy milk"` will arrive at `beernutz@gmail.com` with subje
   }
 }
 ```
+
+Note the `type: "sse"`: this server uses the legacy SSE transport, not
+streamable HTTP. The URL is `/mcp` (the SSE stream endpoint); the message
+post URL is discovered automatically from the server's `endpoint` SSE
+event.
 
 If Claude Desktop runs on a different machine on the LAN, replace `localhost` with the server's LAN IP. Restart Claude Desktop. The `send_note` tool will show up in the tools list.
 
