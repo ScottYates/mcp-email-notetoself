@@ -30,6 +30,7 @@ from starlette.routing import Mount
 from auth import BearerAuthMiddleware
 from config import load_config
 from mailer import MAX_BODY_CHARS, send_note
+from mcp.server.transport_security import TransportSecuritySettings
 
 SERVER_NAME = "notetoself"
 
@@ -89,12 +90,24 @@ def build_app() -> Starlette:
     cfg = load_config()
     mcp = build_mcp_server()
 
+    # Configure MCP transport security (DNS rebinding protection). The SDK
+    # auto-enables it with a localhost-only allowlist when host == "127.0.0.1"
+    # / "localhost" / "::1", which would reject any real public Host header
+    # coming in via a reverse proxy. We bind 0.0.0.0 by default, so that
+    # auto-enable doesn't fire and we have to opt in explicitly.
+    transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=cfg.allowed_hosts,
+        allowed_origins=cfg.allowed_origins,
+    )
+
     # The streamable_http_app already has /mcp mounted and its own lifespan.
     # When we Mount it under another Starlette app, that inner lifespan never
     # runs, so we must start the session manager ourselves.
     inner = mcp.streamable_http_app(
         json_response=True,
         stateless_http=True,
+        transport_security=transport_security,
     )
 
     @asynccontextmanager

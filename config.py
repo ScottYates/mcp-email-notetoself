@@ -57,6 +57,37 @@ def _parse_tokens(raw: str) -> list[str]:
     return data
 
 
+def _parse_allowed_hosts(raw: str) -> list[str]:
+    """Parse ALLOWED_HOSTS into a list. Comma-separated, whitespace stripped."""
+    if not raw or not raw.strip():
+        print(
+            "error: ALLOWED_HOSTS is empty. List at least one host (e.g. 'localhost' "
+            "or a public domain like 'yatesframe.com') so the MCP transport "
+            "security layer can validate the Host header.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    hosts = [h.strip() for h in raw.split(",") if h.strip()]
+    if not hosts:
+        print("error: ALLOWED_HOSTS contains no non-empty entries", file=sys.stderr)
+        sys.exit(2)
+    return hosts
+
+
+# Hostnames that should be paired with http:// (rather than https://) when
+# building the default allowed_origins list. Anything else gets https://.
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "[::1]"})
+
+
+def _build_allowed_origins(hosts: list[str]) -> list[str]:
+    """Pair each host with a sensible Origin header scheme."""
+    origins: list[str] = []
+    for h in hosts:
+        scheme = "http" if h in _LOOPBACK_HOSTS else "https"
+        origins.append(f"{scheme}://{h}")
+    return origins
+
+
 @dataclass(frozen=True)
 class Config:
     smtp_host: str
@@ -67,6 +98,8 @@ class Config:
     host: str
     port: int
     tokens: list[str] = field(default_factory=list)
+    allowed_hosts: list[str] = field(default_factory=list)
+    allowed_origins: list[str] = field(default_factory=list)
 
 
 def load_config() -> Config:
@@ -74,6 +107,10 @@ def load_config() -> Config:
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "3001"))
+
+    allowed_hosts = _parse_allowed_hosts(
+        os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,[::1]")
+    )
 
     return Config(
         smtp_host=os.getenv("SMTP_HOST", "smtp.gmail.com"),
@@ -84,4 +121,6 @@ def load_config() -> Config:
         host=host,
         port=port,
         tokens=_parse_tokens(os.getenv("TOKENS_JSON", "")),
+        allowed_hosts=allowed_hosts,
+        allowed_origins=_build_allowed_origins(allowed_hosts),
     )

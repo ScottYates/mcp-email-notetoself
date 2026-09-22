@@ -45,6 +45,7 @@ Set at minimum:
 | `SMTP_PASS`     | The 16-char App Password from step 2               |
 | `TO_EMAIL`      | `beernutz@gmail.com` (where notes go; defaults to `SMTP_USER`) |
 | `TOKENS_JSON`   | JSON array of allowed bearer tokens (see below)    |
+| `ALLOWED_HOSTS` | Comma-separated list of allowed `Host` headers (see below) |
 
 Generate a token:
 
@@ -62,6 +63,18 @@ Multiple clients (each gets its own token):
 
 ```
 TOKENS_JSON=["token-aaa","token-bbb"]
+```
+
+`ALLOWED_HOSTS` lists the `Host` header values the MCP transport security
+layer will accept. Defaults to loopback only. **If you reach the server via
+a reverse proxy on a public domain (e.g. `https://yatesframe.com/mcp`),
+that domain must appear here** or every request gets HTTP 421
+("Invalid Host header"). The corresponding `Origin` header is whitelisted
+automatically: loopback hosts pair with `http://`, everything else with
+`https://`.
+
+```
+ALLOWED_HOSTS=127.0.0.1,localhost,[::1],yatesframe.com
 ```
 
 ## 4. Run
@@ -183,6 +196,11 @@ the journal (`journalctl -u notetoself.service -f`).
   TLS, or restrict `HOST` to a loopback address in the env file if you only
   need local clients. `Authorization` headers carry the bearer token in
   cleartext without TLS.
+- **MCP DNS-rebinding protection is on by default.** The `ALLOWED_HOSTS`
+  list governs which `Host` header values are accepted; `Origin` headers
+  are matched against the same list with a sensible scheme prefix. Add
+  every public domain the server will be reached under, or clients will
+  see HTTP 421 "Invalid Host header".
 - Tokens are compared with `secrets.compare_digest` (constant-time).
 - The server never logs message bodies, only `subject=...` + `body_chars=N`.
 - `TOKENS_JSON` should be treated as a secret. Anyone with one of the
