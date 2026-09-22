@@ -155,9 +155,10 @@ notetoself/
 |-- .env.example         # copy to .env and edit
 |-- tests/
 |   `-- test_mailer_logic.py
-|-- deploy/              # systemd unit + env file template
+|-- deploy/              # systemd unit + env file template + nginx config
 |   |-- notetoself.service
-|   `-- notetoself.env.example
+|   |-- notetoself.env.example
+|   `-- nginx.conf.example
 `-- README.md
 ```
 
@@ -189,6 +190,41 @@ sudo systemctl status notetoself.service
 
 The unit binds to `0.0.0.0:3001` (configurable via the env file) and logs to
 the journal (`journalctl -u notetoself.service -f`).
+
+## 7. Reverse proxy with nginx
+
+If you're exposing the server on a public domain (e.g.
+`https://yatesframe.com/mcp`), put nginx in front of uvicorn. SSE is
+notoriously easy to break with default nginx settings, so use the
+config in `deploy/nginx.conf.example` rather than rolling your own.
+The two non-obvious requirements:
+
+- **`proxy_buffering off;`** — without it, nginx buffers the SSE stream
+  and your MCP client times out before the first event arrives.
+- **No URI in `proxy_pass`.** Use `proxy_pass http://127.0.0.1:3001;` and
+  `location /mcp`, **not** `proxy_pass http://127.0.0.1:3001/mcp;`. The
+  URI form rewrites `/mcp/posts/` to `/mcpposts/` at the backend and
+  breaks the message path.
+
+Also make sure `ALLOWED_HOSTS` in the env file includes the public
+domain — otherwise transport security rejects every request with 421.
+
+```nginx
+# /etc/nginx/sites-enabled/notetoself (or included from your server block)
+location /mcp {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_redirect off;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    proxy_set_header Authorization $http_authorization;
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 1h;
+    proxy_send_timeout 1h;
+    chunked_transfer_encoding off;
+}
+```
 
 ## Security notes
 

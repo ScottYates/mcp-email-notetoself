@@ -1,0 +1,70 @@
+# notetoself - nginx reverse proxy config for SSE
+#
+# Drop this into your nginx site config (e.g. /etc/nginx/sites-enabled/notetoself
+# or included from your existing server block). Adjust the upstream address if
+# uvicorn binds somewhere other than 127.0.0.1:3001.
+#
+# Tested against SSE traffic from the MCP SDK (SseServerTransport) and from
+# MCP clients (Claude Desktop, curl). The settings below are the minimum
+# needed for the SSE stream + POST message flow to work end-to-end.
+
+# --- Required settings for SSE through nginx --------------------------------
+#
+# proxy_http_version 1.1     SSE streams require HTTP/1.1 keep-alive. The
+#                             default 1.0 disables chunked transfer encoding
+#                             and breaks the stream.
+#
+# proxy_buffering off        THE critical one. Default nginx buffers responses
+#                             until the buffer fills or the connection closes,
+#                             which means the client times out before any SSE
+#                             event arrives. Disable buffering entirely.
+#
+# proxy_cache off            Don't cache SSE streams.
+#
+# proxy_read_timeout 1h      Default 60s will cut idle SSE streams. SSE
+#                             connections stay open for the lifetime of an
+#                             MCP session (which can be hours).
+#
+# proxy_send_timeout 1h      Same for the upstream direction.
+#
+# chunked_transfer_encoding  off  Let uvicorn (or whichever ASGI server)
+#                             control the Transfer-Encoding header.
+#
+# proxy_set_header Connection ""  Clear the hop-by-hop Connection header so
+#                             keep-alive works between client <-> nginx <-> upstream.
+#                             Do NOT use Connection "upgrade" -- that's for
+#                             WebSocket, and it breaks SSE.
+#
+# proxy_set_header Host $host      Forward the original Host so the server's
+#                             transport-security layer (ALLOWED_HOSTS) sees
+#                             the public domain, not 127.0.0.1.
+#
+# proxy_set_header Authorization $http_authorization
+#                             Preserve the bearer token on the POST to
+#                             /mcp/posts/ (some default nginx configs strip
+#                             Authorization on certain paths).
+
+server {
+    listen 443 ssl http2;
+    server_name yatesframe.com;   # change me
+
+    # TLS config (use certbot / your existing certs).
+    ssl_certificate     /etc/letsencrypt/live/yatesframe.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yatesframe.com/privkey.pem;
+
+    location /mcp {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_redirect off;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header Authorization $http_authorization;
+
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+        chunked_transfer_encoding off;
+    }
+}
