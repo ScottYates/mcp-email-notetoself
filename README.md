@@ -79,10 +79,10 @@ email.notetoself ready on 0.0.0.0:3001 (clients=1)
 Smoke test from another shell:
 
 ```bash
-curl http://127.0.0.1:3001/health
+curl http://localhost:3001/health
 # {"status":"ok","server":"email.notetoself"}
 
-curl -X POST http://127.0.0.1:3001/mcp \
+curl -X POST http://localhost:3001/mcp \
      -H "X-Client-ID: scott-desktop" \
      -H "Authorization: Bearer PASTE_TOKEN_HERE" \
      -H "Content-Type: application/json" \
@@ -93,7 +93,7 @@ curl -X POST http://127.0.0.1:3001/mcp \
 You should get a response that lists `send_note`. Then call it:
 
 ```bash
-curl -X POST http://127.0.0.1:3001/mcp \
+curl -X POST http://localhost:3001/mcp \
      -H "X-Client-ID: scott-desktop" \
      -H "Authorization: Bearer PASTE_TOKEN_HERE" \
      -H "Content-Type: application/json" \
@@ -114,7 +114,7 @@ The body `"remember to buy milk"` will arrive at `beernutz@gmail.com` with subje
   "mcpServers": {
     "email.notetoself": {
       "type": "streamable-http",
-      "url": "http://127.0.0.1:3001/mcp",
+      "url": "http://localhost:3001/mcp",
       "headers": {
         "X-Client-ID": "scott-desktop",
         "Authorization": "Bearer PASTE_TOKEN_HERE"
@@ -124,12 +124,12 @@ The body `"remember to buy milk"` will arrive at `beernutz@gmail.com` with subje
 }
 ```
 
-If Claude Desktop runs on a different machine on the LAN, replace `127.0.0.1` with the server's LAN IP. Restart Claude Desktop. The `send_note` tool will show up in the tools list.
+If Claude Desktop runs on a different machine on the LAN, replace `localhost` with the server's LAN IP. Restart Claude Desktop. The `send_note` tool will show up in the tools list.
 
 ### Other clients
 
 Any MCP client that supports streamable HTTP works. Point it at
-`http://127.0.0.1:3001/mcp` with the two headers above.
+`http://localhost:3001/mcp` with the two headers above.
 
 ## File layout
 
@@ -183,9 +183,9 @@ the journal (`journalctl -u email-notetoself.service -f`).
 - **The server binds to `0.0.0.0` by default, which exposes it to anything
   that can reach the host on `PORT`.** Put the box behind a firewall (drop
   inbound traffic to `3001` from untrusted networks), a reverse proxy with
-  TLS, or set `HOST=127.0.0.1` in the env file if you only need local
-  clients. `Authorization` headers carry the bearer token in cleartext
-  without TLS.
+  TLS, or restrict `HOST` to a loopback address in the env file if you only
+  need local clients. `Authorization` headers carry the bearer token in
+  cleartext without TLS.
 - Tokens are compared with `secrets.compare_digest` (constant-time).
 - The server never logs message bodies, only `subject=...` + `body_chars=N`.
 - `CLIENTS_JSON` should be treated as a secret. Anyone with a valid
