@@ -150,7 +150,7 @@ notetoself/
 
 The repo ships a unit file in `deploy/notetoself.service` that runs the
 server under a dedicated unprivileged user, restarts on failure, and reads
-its config from `/etc/notetoself/notetoself.env`.
+its config from `/opt/notetoself/.env` (in the app folder).
 
 ```bash
 # 1. Pick an install root and clone/copy the repo there.
@@ -159,11 +159,11 @@ sudo cp -r . /opt/notetoself/
 sudo -u notetoself python3 -m venv /opt/notetoself/.venv
 sudo -u notetoself /opt/notetoself/.venv/bin/pip install -r /opt/notetoself/requirements.txt
 
-# 2. Install the env file (mode 0600, owned by the service user).
-sudo install -d -o notetoself -g notetoself -m 0750 /etc/notetoself
-sudo cp deploy/notetoself.env.example /etc/notetoself/notetoself.env
-sudo chmod 0600 /etc/notetoself/notetoself.env
-sudo -u notetoself $EDITOR /etc/notetoself/notetoself.env
+# 2. Install the env file in the app folder (mode 0600, owned by the service user).
+sudo install -o notetoself -g notetoself -m 0644 \
+     deploy/notetoself.env.example /opt/notetoself/.env
+sudo chmod 0600 /opt/notetoself/.env
+sudo -u notetoself $EDITOR /opt/notetoself/.env
 
 # 3. Install + enable the unit.
 sudo cp deploy/notetoself.service /etc/systemd/system/notetoself.service

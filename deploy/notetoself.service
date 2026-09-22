@@ -8,7 +8,7 @@
 # Adjust User/Group, WorkingDirectory, EnvironmentFile, and ExecStart paths if
 # your install root is not /opt/notetoself. The unit assumes a dedicated
 # unprivileged user "notetoself" owns both the install root and the
-# env file. Create it once with:
+# `.env` file at /opt/notetoself/.env (mode 0600). Create the user once with:
 #   sudo useradd --system --home /opt/notetoself --shell /usr/sbin/nologin notetoself
 
 [Unit]
@@ -22,7 +22,7 @@ Type=simple
 User=notetoself
 Group=notetoself
 WorkingDirectory=/opt/notetoself
-EnvironmentFile=/etc/notetoself/notetoself.env
+EnvironmentFile=/opt/notetoself/.env
 ExecStart=/opt/notetoself/.venv/bin/python /opt/notetoself/server.py
 
 # Restart on crashes; leave manual stops alone.
