@@ -2,6 +2,8 @@
 
 A tiny MCP server that emails a note to yourself.
 
+I set this up for personal use with the index01 ring.
+
 - **Server name:** `notetoself`
 - **Tool:** `send_note(message: str) -> str`
 - **Subject:** `NTS:` + first 20 characters of the note
