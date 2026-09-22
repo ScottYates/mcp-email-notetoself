@@ -6,7 +6,7 @@ A tiny MCP server that emails a note to yourself.
 - **Tool:** `send_note(message: str) -> str`
 - **Subject:** `NTS:` + first 20 characters of the note
 - **Body:** the full message, exactly as received
-- **Auth:** every request must carry `X-Client-ID` and `Authorization: Bearer <token>` matching an entry in `CLIENTS_JSON`
+- **Auth:** every request must carry `Authorization: Bearer <token>` matching an entry in `TOKENS_JSON`
 
 ## 1. Install
 
@@ -44,7 +44,7 @@ Set at minimum:
 | `SMTP_USER`     | `beernutz@gmail.com` (the sending account)         |
 | `SMTP_PASS`     | The 16-char App Password from step 2               |
 | `TO_EMAIL`      | `beernutz@gmail.com` (where notes go; defaults to `SMTP_USER`) |
-| `CLIENTS_JSON`  | JSON map of `client_id` -> `token` (see below)     |
+| `TOKENS_JSON`   | JSON array of allowed bearer tokens (see below)    |
 
 Generate a token:
 
@@ -52,16 +52,16 @@ Generate a token:
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-Example `CLIENTS_JSON` for a single trusted client:
+Example `TOKENS_JSON` with a single trusted token:
 
 ```
-CLIENTS_JSON={"scott-desktop":"PASTE_TOKEN_HERE"}
+TOKENS_JSON=["PASTE_TOKEN_HERE"]
 ```
 
 Multiple clients (each gets its own token):
 
 ```
-CLIENTS_JSON={"scott-desktop":"token-aaa","scott-phone":"token-bbb"}
+TOKENS_JSON=["token-aaa","token-bbb"]
 ```
 
 ## 4. Run
@@ -73,7 +73,7 @@ python server.py
 You should see:
 
 ```
-notetoself ready on 0.0.0.0:3001 (clients=1)
+notetoself ready on 0.0.0.0:3001 (tokens=1)
 ```
 
 Smoke test from another shell:
@@ -83,7 +83,6 @@ curl http://localhost:3001/health
 # {"status":"ok","server":"notetoself"}
 
 curl -X POST http://localhost:3001/mcp \
-     -H "X-Client-ID: scott-desktop" \
      -H "Authorization: Bearer PASTE_TOKEN_HERE" \
      -H "Content-Type: application/json" \
      -H "Accept: application/json, text/event-stream" \
@@ -94,7 +93,6 @@ You should get a response that lists `send_note`. Then call it:
 
 ```bash
 curl -X POST http://localhost:3001/mcp \
-     -H "X-Client-ID: scott-desktop" \
      -H "Authorization: Bearer PASTE_TOKEN_HERE" \
      -H "Content-Type: application/json" \
      -H "Accept: application/json, text/event-stream" \
@@ -116,7 +114,6 @@ The body `"remember to buy milk"` will arrive at `beernutz@gmail.com` with subje
       "type": "streamable-http",
       "url": "http://localhost:3001/mcp",
       "headers": {
-        "X-Client-ID": "scott-desktop",
         "Authorization": "Bearer PASTE_TOKEN_HERE"
       }
     }
@@ -129,14 +126,14 @@ If Claude Desktop runs on a different machine on the LAN, replace `localhost` wi
 ### Other clients
 
 Any MCP client that supports streamable HTTP works. Point it at
-`http://localhost:3001/mcp` with the two headers above.
+`http://localhost:3001/mcp` with the single `Authorization` header above.
 
 ## File layout
 
 ```
 notetoself/
 |-- server.py            # MCP server entry + Starlette wiring
-|-- auth.py              # ASGI middleware: X-Client-ID + Bearer token
+|-- auth.py              # ASGI middleware: bearer-token allowlist
 |-- mailer.py            # SMTP send + subject/body rules
 |-- config.py            # .env loading + validation
 |-- requirements.txt
@@ -188,9 +185,9 @@ the journal (`journalctl -u notetoself.service -f`).
   cleartext without TLS.
 - Tokens are compared with `secrets.compare_digest` (constant-time).
 - The server never logs message bodies, only `subject=...` + `body_chars=N`.
-- `CLIENTS_JSON` should be treated as a secret. Anyone with a valid
-  `client_id`/`token` pair can email as you. Don't commit `.env` or the
-  systemd env file.
+- `TOKENS_JSON` should be treated as a secret. Anyone with one of the
+  listed tokens can email as you. Don't commit `.env` or the systemd env
+  file.
 - SMTP errors (wrong password, blocked sign-in, etc.) are returned to the
   calling LLM as plain text. Don't expose this server on a public network
   without thinking about that.

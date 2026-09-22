@@ -1,16 +1,16 @@
-"""Client-id + bearer-token auth middleware for the MCP HTTP endpoint.
+"""Bearer-token auth middleware for the MCP HTTP endpoint.
 
 A pure ASGI middleware so it can wrap the Starlette app returned by
 `MCPServer.streamable_http_app()` without depending on Starlette's middleware
 plumbing (which is mounted under a path prefix in the parent app and harder
 to reason about).
 
-Expected headers on every request to a protected path:
-    X-Client-ID: <id>
+Expected header on every request to a protected path:
     Authorization: Bearer <token>
 
-`Authorization` is checked with `secrets.compare_digest` to make timing
-attacks harder.
+The presented token must match one of the entries in the `tokens` allowlist
+loaded from `TOKENS_JSON`. Comparison uses `secrets.compare_digest` to make
+timing attacks harder.
 """
 
 from __future__ import annotations
@@ -29,23 +29,24 @@ Send = Callable[[Message], Awaitable[None]]
 ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
 
-class ClientAuthMiddleware:
-    """ASGI middleware that enforces client_id + bearer-token auth.
+class BearerAuthMiddleware:
+    """ASGI middleware that enforces a bearer-token allowlist.
 
     Args:
         app: The downstream ASGI application (the MCP server's Starlette app).
-        clients: Mapping of allowed client_id -> expected token.
+        tokens: Iterable of allowed bearer tokens (any of which authenticates).
         exempt_paths: Paths that bypass auth (e.g. health checks).
     """
 
     def __init__(
         self,
         app: ASGIApp,
-        clients: dict[str, str],
+        tokens: Iterable[str],
         exempt_paths: Iterable[str] = (),
     ) -> None:
         self.app = app
-        self.clients = clients
+        # Materialise once so we can iterate multiple times without surprises.
+        self.tokens: tuple[str, ...] = tuple(tokens)
         self.exempt_paths = frozenset(exempt_paths)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -64,7 +65,6 @@ class ClientAuthMiddleware:
             for k, v in scope.get("headers", [])
         }
 
-        client_id = headers.get("x-client-id", "")
         auth_header = headers.get("authorization", "")
 
         if not auth_header.startswith("Bearer "):
@@ -76,21 +76,19 @@ class ClientAuthMiddleware:
             await self._reject(send, "empty bearer token")
             return
 
-        expected_token = self.clients.get(client_id)
-        if expected_token is None:
-            # Don't distinguish "unknown client" from "bad token" in the
-            # response: same status + message either way, so we don't leak
-            # which client ids are valid.
-            await self._reject(send, "invalid client_id or token")
-            return
+        # Constant-time comparison against each allowlisted token. Iterating
+        # the full list on every request is fine here -- the allowlist is
+        # tiny (handful of tokens) and we don't leak which one matched via
+        # timing because every comparison runs to completion.
+        matched = False
+        for expected in self.tokens:
+            if secrets.compare_digest(presented_token, expected):
+                matched = True
+                break
 
-        if not secrets.compare_digest(presented_token, expected_token):
-            await self._reject(send, "invalid client_id or token")
+        if not matched:
+            await self._reject(send, "invalid bearer token")
             return
-
-        # Stash the authenticated client_id on the scope so handlers downstream
-        # can log it.
-        scope.setdefault("state", {})["client_id"] = client_id
 
         await self.app(scope, receive, send)
 

@@ -28,31 +28,29 @@ def _required(name: str) -> str:
     return value
 
 
-def _parse_clients(raw: str) -> dict[str, str]:
-    """Parse CLIENTS_JSON into a dict. Fails loudly on bad JSON."""
+def _parse_tokens(raw: str) -> list[str]:
+    """Parse TOKENS_JSON into a list of bearer tokens. Fails loudly on bad JSON."""
     if not raw or not raw.strip():
         print(
-            "error: CLIENTS_JSON is empty. At least one client_id/token pair "
-            "is required",
+            "error: TOKENS_JSON is empty. At least one bearer token is required",
             file=sys.stderr,
         )
         sys.exit(2)
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        print(f"error: CLIENTS_JSON is not valid JSON: {exc}", file=sys.stderr)
+        print(f"error: TOKENS_JSON is not valid JSON: {exc}", file=sys.stderr)
         sys.exit(2)
-    if not isinstance(data, dict) or not data:
+    if not isinstance(data, list) or not data:
         print(
-            "error: CLIENTS_JSON must be a non-empty object mapping "
-            "client_id -> token",
+            "error: TOKENS_JSON must be a non-empty JSON array of token strings",
             file=sys.stderr,
         )
         sys.exit(2)
-    for key, val in data.items():
-        if not isinstance(key, str) or not isinstance(val, str) or not val:
+    for i, val in enumerate(data):
+        if not isinstance(val, str) or not val:
             print(
-                f"error: CLIENTS_JSON entry {key!r} must map to a non-empty string token",
+                f"error: TOKENS_JSON[{i}] must be a non-empty string token",
                 file=sys.stderr,
             )
             sys.exit(2)
@@ -68,7 +66,7 @@ class Config:
     to_email: str
     host: str
     port: int
-    clients: dict[str, str] = field(default_factory=dict)
+    tokens: list[str] = field(default_factory=list)
 
 
 def load_config() -> Config:
@@ -85,5 +83,5 @@ def load_config() -> Config:
         to_email=os.getenv("TO_EMAIL") or os.getenv("SMTP_USER") or _required("TO_EMAIL"),
         host=host,
         port=port,
-        clients=_parse_clients(os.getenv("CLIENTS_JSON", "")),
+        tokens=_parse_tokens(os.getenv("TOKENS_JSON", "")),
     )

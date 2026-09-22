@@ -7,8 +7,8 @@ Subject: ``NTS:<first 20 chars of the note>``
 Body:    the full message, exactly as received.
 
 Authorization: every request to the MCP endpoint must carry an
-`X-Client-ID` header and an `Authorization: Bearer <token>` header whose
-values match one of the entries in the `CLIENTS_JSON` environment variable.
+`Authorization: Bearer <token>` header whose value matches one of the
+entries in the `TOKENS_JSON` environment variable.
 
 Run: see README.md.
 """
@@ -27,7 +27,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount
 
-from auth import ClientAuthMiddleware
+from auth import BearerAuthMiddleware
 from config import load_config
 from mailer import MAX_BODY_CHARS, send_note
 
@@ -101,19 +101,19 @@ def build_app() -> Starlette:
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
         async with mcp.session_manager.run():
             logger.info(
-                "notetoself ready on %s:%d (clients=%d)",
+                "notetoself ready on %s:%d (tokens=%d)",
                 cfg.host,
                 cfg.port,
-                len(cfg.clients),
+                len(cfg.tokens),
             )
             try:
                 yield
             finally:
                 logger.info("notetoself shutting down")
 
-    protected = ClientAuthMiddleware(
+    protected = BearerAuthMiddleware(
         inner,
-        clients=cfg.clients,
+        tokens=cfg.tokens,
         exempt_paths=("/health",),
     )
 
