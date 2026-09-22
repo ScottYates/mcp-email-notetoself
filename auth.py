@@ -21,7 +21,7 @@ from typing import Any
 
 from starlette.responses import JSONResponse
 
-# ASGI types — kept minimal so we don't have to import starlette.types.
+# ASGI types: kept minimal so we don't have to import starlette.types.
 Scope = dict[str, Any]
 Message = dict[str, Any]
 Receive = Callable[[], Awaitable[Message]]
@@ -79,7 +79,7 @@ class ClientAuthMiddleware:
         expected_token = self.clients.get(client_id)
         if expected_token is None:
             # Don't distinguish "unknown client" from "bad token" in the
-            # response — same status + message either way — so we don't leak
+            # response: same status + message either way, so we don't leak
             # which client ids are valid.
             await self._reject(send, "invalid client_id or token")
             return

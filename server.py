@@ -1,7 +1,7 @@
-"""email.notetoself — an MCP server that emails you a note to yourself.
+"""email.notetoself: an MCP server that emails you a note to yourself.
 
 Server name: `email.notetoself`
-Tool: `send_note` — sends `message` as an email to `TO_EMAIL`.
+Tool: `send_note`. Sends `message` as an email to `TO_EMAIL`.
 
 Subject: ``NTS:<first 20 chars of the note>``
 Body:    the full message, exactly as received.
@@ -33,7 +33,7 @@ from mailer import MAX_BODY_CHARS, send_note
 
 SERVER_NAME = "email.notetoself"
 
-# Logging on stderr — stdout can collide with stdio MCP transports if anyone
+# Logging on stderr: stdout can collide with stdio MCP transports if anyone
 # ever wires this up via stdio, and you want logs visible either way.
 logging.basicConfig(
     level=logging.INFO,
@@ -76,7 +76,7 @@ def build_mcp_server() -> MCPServer:
             return f"error: failed to send email: {exc}"
         return f"sent: subject={result.subject!r} to={result.to}"
 
-    # Health check — bypasses auth so you can `curl /health` without a token.
+    # Health check. Bypasses auth so you can `curl /health` without a token.
     @mcp.custom_route("/health", methods=["GET"])
     async def health(_request: Request) -> JSONResponse:
         return JSONResponse({"status": "ok", "server": SERVER_NAME})

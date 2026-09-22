@@ -43,7 +43,7 @@ Set at minimum:
 | --------------- | -------------------------------------------------- |
 | `SMTP_USER`     | `beernutz@gmail.com` (the sending account)         |
 | `SMTP_PASS`     | The 16-char App Password from step 2               |
-| `TO_EMAIL`      | `beernutz@gmail.com` (where notes go) — defaults to `SMTP_USER` |
+| `TO_EMAIL`      | `beernutz@gmail.com` (where notes go; defaults to `SMTP_USER`) |
 | `CLIENTS_JSON`  | JSON map of `client_id` -> `token` (see below)     |
 
 Generate a token:
@@ -135,26 +135,26 @@ Any MCP client that supports streamable HTTP works. Point it at
 
 ```
 email-notetoself/
-├── server.py            # MCP server entry + Starlette wiring
-├── auth.py              # ASGI middleware: X-Client-ID + Bearer token
-├── mailer.py            # SMTP send + subject/body rules
-├── config.py            # .env loading + validation
-├── requirements.txt
-├── .env.example         # copy to .env and edit
-├── tests/
-│   └── test_mailer_logic.py
-└── README.md
+|-- server.py            # MCP server entry + Starlette wiring
+|-- auth.py              # ASGI middleware: X-Client-ID + Bearer token
+|-- mailer.py            # SMTP send + subject/body rules
+|-- config.py            # .env loading + validation
+|-- requirements.txt
+|-- .env.example         # copy to .env and edit
+|-- tests/
+|   `-- test_mailer_logic.py
+`-- README.md
 ```
 
 ## Security notes
 
-- The server binds to `127.0.0.1` by default — only same-machine clients can reach it.
+- The server binds to `127.0.0.1` by default. Only same-machine clients can reach it.
   Change `HOST` in `.env` if you need network access (e.g. for a phone client);
   in that case put it behind a reverse proxy with TLS, since `Authorization`
   headers carry the token in cleartext.
 - Tokens are compared with `secrets.compare_digest` (constant-time).
 - The server never logs message bodies, only `subject=...` + `body_chars=N`.
-- `CLIENTS_JSON` should be treated as a secret — anyone with a valid
+- `CLIENTS_JSON` should be treated as a secret. Anyone with a valid
   `client_id`/`token` pair can email as you. Don't commit `.env`.
 - SMTP errors (wrong password, blocked sign-in, etc.) are returned to the
   calling LLM as plain text. Don't expose this server on a public network

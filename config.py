@@ -32,7 +32,7 @@ def _parse_clients(raw: str) -> dict[str, str]:
     """Parse CLIENTS_JSON into a dict. Fails loudly on bad JSON."""
     if not raw or not raw.strip():
         print(
-            "error: CLIENTS_JSON is empty — at least one client_id/token pair "
+            "error: CLIENTS_JSON is empty. At least one client_id/token pair "
             "is required",
             file=sys.stderr,
         )
