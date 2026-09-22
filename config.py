@@ -74,7 +74,7 @@ class Config:
 def load_config() -> Config:
     """Load and validate configuration. Exits the process on error."""
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    host = os.getenv("HOST", "127.0.0.1")
+    host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "3001"))
 
     return Config(

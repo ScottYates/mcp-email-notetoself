@@ -10,10 +10,10 @@ A tiny MCP server that emails a note to yourself.
 
 ## 1. Install
 
-```powershell
-cd C:\Users\Scott\.mavis\agents\coder\workspace\email-notetoself
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+```bash
+cd email-notetoself
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
@@ -32,9 +32,9 @@ The server uses Gmail SMTP with an App Password (not your normal Gmail password)
 
 Copy `.env.example` to `.env` and fill in:
 
-```powershell
-Copy-Item .env.example .env
-notepad .env
+```bash
+cp .env.example .env
+$EDITOR .env
 ```
 
 Set at minimum:
@@ -48,7 +48,7 @@ Set at minimum:
 
 Generate a token:
 
-```powershell
+```bash
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
@@ -66,38 +66,38 @@ CLIENTS_JSON={"scott-desktop":"token-aaa","scott-phone":"token-bbb"}
 
 ## 4. Run
 
-```powershell
+```bash
 python server.py
 ```
 
 You should see:
 
 ```
-email.notetoself ready on 127.0.0.1:3001 (clients=1)
+email.notetoself ready on 0.0.0.0:3001 (clients=1)
 ```
 
 Smoke test from another shell:
 
-```powershell
+```bash
 curl http://127.0.0.1:3001/health
 # {"status":"ok","server":"email.notetoself"}
 
-curl -X POST http://127.0.0.1:3001/mcp `
-     -H "X-Client-ID: scott-desktop" `
-     -H "Authorization: Bearer PASTE_TOKEN_HERE" `
-     -H "Content-Type: application/json" `
-     -H "Accept: application/json, text/event-stream" `
+curl -X POST http://127.0.0.1:3001/mcp \
+     -H "X-Client-ID: scott-desktop" \
+     -H "Authorization: Bearer PASTE_TOKEN_HERE" \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json, text/event-stream" \
      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
 You should get a response that lists `send_note`. Then call it:
 
-```powershell
-curl -X POST http://127.0.0.1:3001/mcp `
-     -H "X-Client-ID: scott-desktop" `
-     -H "Authorization: Bearer PASTE_TOKEN_HERE" `
-     -H "Content-Type: application/json" `
-     -H "Accept: application/json, text/event-stream" `
+```bash
+curl -X POST http://127.0.0.1:3001/mcp \
+     -H "X-Client-ID: scott-desktop" \
+     -H "Authorization: Bearer PASTE_TOKEN_HERE" \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json, text/event-stream" \
      -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"send_note","arguments":{"message":"remember to buy milk"}}}'
 ```
 
@@ -107,7 +107,7 @@ The body `"remember to buy milk"` will arrive at `beernutz@gmail.com` with subje
 
 ### Claude Desktop
 
-`%APPDATA%\Claude\claude_desktop_config.json`:
+`~/.config/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -124,7 +124,7 @@ The body `"remember to buy milk"` will arrive at `beernutz@gmail.com` with subje
 }
 ```
 
-Restart Claude Desktop. The `send_note` tool will show up in the tools list.
+If Claude Desktop runs on a different machine on the LAN, replace `127.0.0.1` with the server's LAN IP. Restart Claude Desktop. The `send_note` tool will show up in the tools list.
 
 ### Other clients
 
@@ -143,19 +143,54 @@ email-notetoself/
 |-- .env.example         # copy to .env and edit
 |-- tests/
 |   `-- test_mailer_logic.py
+|-- deploy/              # systemd unit + env file template
+|   |-- email-notetoself.service
+|   `-- email-notetoself.env.example
 `-- README.md
 ```
 
+## 6. Run as a systemd service (Linux)
+
+The repo ships a unit file in `deploy/email-notetoself.service` that runs the
+server under a dedicated unprivileged user, restarts on failure, and reads
+its config from `/etc/email-notetoself/email-notetoself.env`.
+
+```bash
+# 1. Pick an install root and clone/copy the repo there.
+sudo install -d -o email-notetoself -g email-notetoself -m 0750 /opt/email-notetoself
+sudo cp -r . /opt/email-notetoself/
+sudo -u email-notetoself python3 -m venv /opt/email-notetoself/.venv
+sudo -u email-notetoself /opt/email-notetoself/.venv/bin/pip install -r /opt/email-notetoself/requirements.txt
+
+# 2. Install the env file (mode 0600, owned by the service user).
+sudo install -d -o email-notetoself -g email-notetoself -m 0750 /etc/email-notetoself
+sudo cp deploy/email-notetoself.env.example /etc/email-notetoself/email-notetoself.env
+sudo chmod 0600 /etc/email-notetoself/email-notetoself.env
+sudo -u email-notetoself $EDITOR /etc/email-notetoself/email-notetoself.env
+
+# 3. Install + enable the unit.
+sudo cp deploy/email-notetoself.service /etc/systemd/system/email-notetoself.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now email-notetoself.service
+sudo systemctl status email-notetoself.service
+```
+
+The unit binds to `0.0.0.0:3001` (configurable via the env file) and logs to
+the journal (`journalctl -u email-notetoself.service -f`).
+
 ## Security notes
 
-- The server binds to `127.0.0.1` by default. Only same-machine clients can reach it.
-  Change `HOST` in `.env` if you need network access (e.g. for a phone client);
-  in that case put it behind a reverse proxy with TLS, since `Authorization`
-  headers carry the token in cleartext.
+- **The server binds to `0.0.0.0` by default, which exposes it to anything
+  that can reach the host on `PORT`.** Put the box behind a firewall (drop
+  inbound traffic to `3001` from untrusted networks), a reverse proxy with
+  TLS, or set `HOST=127.0.0.1` in the env file if you only need local
+  clients. `Authorization` headers carry the bearer token in cleartext
+  without TLS.
 - Tokens are compared with `secrets.compare_digest` (constant-time).
 - The server never logs message bodies, only `subject=...` + `body_chars=N`.
 - `CLIENTS_JSON` should be treated as a secret. Anyone with a valid
-  `client_id`/`token` pair can email as you. Don't commit `.env`.
+  `client_id`/`token` pair can email as you. Don't commit `.env` or the
+  systemd env file.
 - SMTP errors (wrong password, blocked sign-in, etc.) are returned to the
   calling LLM as plain text. Don't expose this server on a public network
   without thinking about that.

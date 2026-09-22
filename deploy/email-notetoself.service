@@ -1,0 +1,62 @@
+# email.notetoself - systemd unit
+#
+# Install:
+#   sudo cp deploy/email-notetoself.service /etc/systemd/system/email-notetoself.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now email-notetoself.service
+#
+# Adjust User/Group, WorkingDirectory, EnvironmentFile, and ExecStart paths if
+# your install root is not /opt/email-notetoself. The unit assumes a dedicated
+# unprivileged user "email-notetoself" owns both the install root and the
+# env file. Create it once with:
+#   sudo useradd --system --home /opt/email-notetoself --shell /usr/sbin/nologin email-notetoself
+
+[Unit]
+Description=email.notetoself MCP server
+Documentation=https://github.com/ScottYates/mcp-email-notetoself
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=email-notetoself
+Group=email-notetoself
+WorkingDirectory=/opt/email-notetoself
+EnvironmentFile=/etc/email-notetoself/email-notetoself.env
+ExecStart=/opt/email-notetoself/.venv/bin/python /opt/email-notetoself/server.py
+
+# Restart on crashes; leave manual stops alone.
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+# Hardening: the server needs network, time, DNS, its own install dir, and
+# the env file. Nothing else.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Logs go to the journal; pick them up with:
+#   journalctl -u email-notetoself.service -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=email-notetoself
+
+[Install]
+WantedBy=multi-user.target
